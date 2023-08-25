@@ -13,6 +13,7 @@
 
 
 // ------- Generate prime numbers using CPU -------
+
 class SieveCpu {
 private:
     uint64_t max;
