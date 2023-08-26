@@ -1,5 +1,5 @@
 // Generate prime numbers using GPU
-// Algorithm: Sieve of Eratosthenes
+// Algorithm: Sieve of Eratosthenes with parallel sieve
 //
 // To compile and run:
 //   $ nvcc --optimize 3 main.cu -o main
@@ -48,7 +48,7 @@ public:
         mark_as_composite(0);
         mark_as_composite(1);
         uint64_t sqrt_max = std::sqrt(max);
-        for (uint64_t i = 2; i <= sqrt_max; i++) {
+        for (uint64_t i = 0; i <= sqrt_max; i++) {
             if (is_prime(i)) {
                 for (uint64_t j = 2 * i; j <= max; j += i) {
                     mark_as_composite(j);
@@ -145,8 +145,8 @@ public:
         std::memset(sieve_buffer_host, (uint8_t) ~0, sieve_buffer_size * sizeof(long long));
         mark_as_composite(0);
         mark_as_composite(1);
+        // From my test, using dedicated device memory is much faster than unified memory, as we are performing intensive memory operations in GPU
         cudaMemcpy(sieve_buffer_device, sieve_buffer_host, sieve_buffer_size * sizeof(long long), cudaMemcpyHostToDevice);
-        // Ref: https://developer.nvidia.com/blog/even-easier-introduction-cuda/
         int block_size = 256;
         int num_blocks = (max + block_size - 1) / block_size;
         sieve_kernel<<<num_blocks, block_size>>>(max, sieve_buffer_device, sieve_buffer_size, seed_primes_device, seed_primes_size);
