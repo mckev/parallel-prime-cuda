@@ -1,5 +1,6 @@
 // Generate prime numbers using GPU
 // Algorithm: Sieve of Eratosthenes with parallel sieve
+// Article: https://medium.com/@mckev/generating-prime-numbers-using-gpu-eb0d9caea479
 //
 // To compile and run:
 //   $ nvcc --optimize 3 main.cu -o main
@@ -21,21 +22,21 @@ private:
     uint64_t sieve_buffer_size;
 
     bool is_prime(uint64_t num) const {
-        uint64_t byte_index = num / sizeof(char);
-        uint8_t bit_index = num % sizeof(char);
-        return sieve_buffer[byte_index] & (1 << bit_index);
+        uint64_t byte_index = num / (8 * sizeof(char));
+        uint8_t bit_index = num % (8 * sizeof(char));
+        return sieve_buffer[byte_index] & ((char) 1 << bit_index);
     }
 
     void mark_as_composite(uint64_t num) {
-        uint64_t byte_index = num / sizeof(char);
-        uint8_t bit_index = num % sizeof(char);
-        sieve_buffer[byte_index] &= ~(1 << bit_index);
+        uint64_t byte_index = num / (8 * sizeof(char));
+        uint8_t bit_index = num % (8 * sizeof(char));
+        sieve_buffer[byte_index] &= ~((char) 1 << bit_index);
     }
 
 public:
     SieveCpu(uint64_t _max) {
         max = _max;
-        sieve_buffer_size = max / sizeof(char) + 1;
+        sieve_buffer_size = max / (8 * sizeof(char)) + 1;
         sieve_buffer = (uint8_t*) malloc(sieve_buffer_size * sizeof(char));
     }
 
@@ -88,12 +89,12 @@ __global__ void sieve_kernel(uint64_t max, long long* sieve_buffer, uint64_t sie
         if (i < 2) {
             continue;
         }
-        // Mark all primes * i as composite, in which i >= 2
+        // Mark all seed primes * i as composite, in which i >= 2
         for (uint64_t p = 0; p < seed_primes_size; p++) {
             uint64_t prime = seed_primes[p];
             if (prime * i > max) break;
-            uint64_t byte_index = (prime * i) / sizeof(long long);
-            uint8_t bit_index = (prime * i) % sizeof(long long);
+            uint64_t byte_index = (prime * i) / (8 * sizeof(long long));
+            uint8_t bit_index = (prime * i) % (8 * sizeof(long long));
             atomicAnd(&sieve_buffer[byte_index], ~((long long) 1 << bit_index));
         }
     }
@@ -110,21 +111,21 @@ private:
     uint64_t seed_primes_size;
 
     bool is_prime(uint64_t num) const {
-        uint64_t byte_index = num / sizeof(long long);
-        uint8_t bit_index = num % sizeof(long long);
-        return sieve_buffer_host[byte_index] & (1 << bit_index);
+        uint64_t byte_index = num / (8 * sizeof(long long));
+        uint8_t bit_index = num % (8 * sizeof(long long));
+        return sieve_buffer_host[byte_index] & ((long long) 1 << bit_index);
     }
 
     void mark_as_composite(uint64_t num) {
-        uint64_t byte_index = num / sizeof(long long);
-        uint8_t bit_index = num % sizeof(long long);
-        sieve_buffer_host[byte_index] &= ~(1 << bit_index);
+        uint64_t byte_index = num / (8 * sizeof(long long));
+        uint8_t bit_index = num % (8 * sizeof(long long));
+        sieve_buffer_host[byte_index] &= ~((long long) 1 << bit_index);
     }
 
 public:
     SieveGpu(uint64_t _max, const std::vector<uint64_t>& _seed_primes) {
         max = _max;
-        sieve_buffer_size = max / sizeof(long long) + 1;
+        sieve_buffer_size = max / (8 * sizeof(long long)) + 1;
         sieve_buffer_host = (long long*) malloc(sieve_buffer_size * sizeof(long long));
         cudaMalloc(&sieve_buffer_device, sieve_buffer_size * sizeof(long long));
         seed_primes_size = _seed_primes.size();
@@ -145,7 +146,7 @@ public:
         std::memset(sieve_buffer_host, (uint8_t) ~0, sieve_buffer_size * sizeof(long long));
         mark_as_composite(0);
         mark_as_composite(1);
-        // From my test, using dedicated device memory is much faster than unified memory, as we are performing intensive memory operations in GPU
+        // From my test, using dedicated device memory is much faster than unified memory, as we are performing intensive memory operations on GPU
         cudaMemcpy(sieve_buffer_device, sieve_buffer_host, sieve_buffer_size * sizeof(long long), cudaMemcpyHostToDevice);
         int block_size = 256;
         int num_blocks = (max + block_size - 1) / block_size;
@@ -178,21 +179,24 @@ public:
 
 
 int main() {
-    uint64_t max = 5000000000;
+    uint64_t max = 10000000000;
     uint64_t sqrt_max = std::sqrt(max);
+    std::cout << "Calculating number of primes under " << max << std::endl;
 
-    // Use CPU to calculate all prime numbers up to sqrt(max).
-    // This becomes seed primes for generating prime numbers up to max.
+    // Use CPU to calculate all prime numbers up to sqrt(max)
+    // This becomes seed primes for generating prime numbers up to max
     SieveCpu sieve_cpu = SieveCpu(sqrt_max);
-    std::cout << "Sieving seed primes in CPU" << std::endl;
+    std::cout << "Sieving seed primes on CPU" << std::endl;
     sieve_cpu.sieve();
+    std::cout << "Done" << std::endl;
     std::cout << "Number of seed primes: " << sieve_cpu.count_primes() << std::endl;
     std::vector<uint64_t> seed_primes = sieve_cpu.get_primes();
 
     // Use GPU to sieve composites
     SieveGpu sieve_gpu = SieveGpu(max, seed_primes);
-    std::cout << "Sieving composites in GPU" << std::endl;
+    std::cout << "Sieving composites on GPU" << std::endl;
     sieve_gpu.sieve();
+    std::cout << "Done" << std::endl;
     std::cout << "Number of primes: " << sieve_gpu.count_primes() << std::endl;
 
     return 0;
