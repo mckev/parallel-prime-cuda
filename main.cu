@@ -152,12 +152,13 @@ public:
         // From my test, using dedicated device memory is much faster than unified memory, as we are performing intensive memory operations on GPU
         cudaMemcpy(sieve_buffer_device, sieve_buffer_host, sieve_buffer_size * sizeof(long long), cudaMemcpyHostToDevice);
         int block_size = 256;
-        int num_blocks = (max + block_size - 1) / block_size;
-        // stride = block_size * num_blocks. To process index < MAX_STRIDE, no need for stride.
-        uint64_t stride = (uint64_t) block_size * num_blocks;
+        uint64_t num_blocks = (max + block_size - 1) / block_size;
+        // Stride is required to process index > MAX_STRIDE
+        uint64_t stride = block_size * num_blocks;
         if (stride > MAX_STRIDE) {
             num_blocks = MAX_STRIDE / block_size;
         }
+        std::cout << "Num blocks: " << num_blocks << std::endl;
         sieve_kernel<<<num_blocks, block_size>>>(max, sieve_buffer_device, sieve_buffer_size, seed_primes_device, seed_primes_size);
         // Wait for GPU to finish before accessing on host
         cudaDeviceSynchronize();
