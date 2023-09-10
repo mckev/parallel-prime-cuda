@@ -87,7 +87,7 @@ public:
 
 __global__ void sieve_kernel(uint64_t max, long long* sieve_buffer, uint64_t sieve_buffer_size, uint64_t* seed_primes, uint64_t seed_primes_size) {
     uint64_t index = blockIdx.x * blockDim.x + threadIdx.x;                                 // index = range of 0 up to MAX_STRIDE
-    uint64_t stride = blockDim.x * gridDim.x;                                               // stride = MAX_STRIDE
+    uint64_t stride = blockDim.x * gridDim.x;                                               // stride is a very large number, such as MAX_STRIDE
     for (uint64_t i = index; i <= max; i += stride) {
         if (i < 2) {
             continue;
