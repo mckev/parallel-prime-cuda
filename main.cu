@@ -13,6 +13,9 @@
 #include <vector>
 
 
+const uint64_t MAX_STRIDE = 8000000000;
+
+
 // ------- Generate prime numbers using CPU -------
 
 class SieveCpu {
@@ -83,8 +86,8 @@ public:
 // ------- Generate prime numbers using GPU (NVIDIA CUDA) -------
 
 __global__ void sieve_kernel(uint64_t max, long long* sieve_buffer, uint64_t sieve_buffer_size, uint64_t* seed_primes, uint64_t seed_primes_size) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = blockDim.x * gridDim.x;
+    uint64_t index = blockIdx.x * blockDim.x + threadIdx.x;                                 // index = range of 0 up to MAX_STRIDE
+    uint64_t stride = blockDim.x * gridDim.x;                                               // stride = MAX_STRIDE
     for (uint64_t i = index; i <= max; i += stride) {
         if (i < 2) {
             continue;
@@ -150,6 +153,11 @@ public:
         cudaMemcpy(sieve_buffer_device, sieve_buffer_host, sieve_buffer_size * sizeof(long long), cudaMemcpyHostToDevice);
         int block_size = 256;
         int num_blocks = (max + block_size - 1) / block_size;
+        // stride = block_size * num_blocks. To process index < MAX_STRIDE, no need for stride.
+        uint64_t stride = (uint64_t) block_size * num_blocks;
+        if (stride > MAX_STRIDE) {
+            num_blocks = MAX_STRIDE / block_size;
+        }
         sieve_kernel<<<num_blocks, block_size>>>(max, sieve_buffer_device, sieve_buffer_size, seed_primes_device, seed_primes_size);
         // Wait for GPU to finish before accessing on host
         cudaDeviceSynchronize();
@@ -179,7 +187,7 @@ public:
 
 
 int main() {
-    uint64_t max = 10000000000;
+    uint64_t max = 80000000000;
     uint64_t sqrt_max = std::sqrt(max);
     std::cout << "Calculating number of primes under " << max << std::endl;
 
