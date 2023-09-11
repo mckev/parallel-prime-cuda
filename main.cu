@@ -7,13 +7,14 @@
 //   $ ./main
 
 
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <iostream>
 #include <vector>
 
 
-const uint64_t MAX_STRIDE = 8000000000;
+const uint64_t MAX_STRIDE = 256000000;
 
 
 // ------- Generate prime numbers using CPU -------
@@ -155,6 +156,7 @@ public:
         uint64_t num_blocks = (max + block_size - 1) / block_size;
         // Stride is required to process index > MAX_STRIDE
         uint64_t stride = block_size * num_blocks;
+        assert(MAX_STRIDE % block_size == 0);
         if (stride > MAX_STRIDE) {
             num_blocks = MAX_STRIDE / block_size;
         }
@@ -188,7 +190,7 @@ public:
 
 
 int main() {
-    uint64_t max = 80000000000;
+    uint64_t max = 80000000000;                                                             // expected output: 3325059246
     uint64_t sqrt_max = std::sqrt(max);
     std::cout << "Calculating number of primes under " << max << std::endl;
 
